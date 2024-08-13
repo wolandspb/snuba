@@ -11,7 +11,7 @@ from snuba.query import SelectedExpression
 from snuba.query.conditions import combine_and_conditions
 from snuba.query.data_source.simple import Table
 from snuba.query.dsl import column, equals, in_cond, literal, literals_tuple
-from snuba.query.exceptions import TooManyDeleteRowsException
+from snuba.query.exceptions import NoRowsToDeleteException, TooManyDeleteRowsException
 from snuba.query.expressions import Expression, FunctionCall
 from snuba.query.query_settings import HTTPQuerySettings
 from snuba.reader import Result
@@ -147,7 +147,11 @@ def _delete_from_table(
         on_cluster=on_cluster,
         is_delete=True,
     )
-    _enforce_max_rows(query)
+    try:
+        _enforce_max_rows(query)
+    except NoRowsToDeleteException as e:
+        result: Result = {"extra_message": e.message}
+        return result
 
     deletion_processors = storage.get_deletion_processors()
     # These settings aren't needed at the moment

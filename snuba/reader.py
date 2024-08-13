@@ -31,6 +31,7 @@ Result = TypedDict(
         "totals": Row,
         "profile": Optional[Dict[str, Any]],
         "trace_output": str,
+        "extra_message": str,
     },
     total=False,
 )

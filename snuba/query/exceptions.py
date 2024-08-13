@@ -55,3 +55,8 @@ class QueryPlanException(SerializableException):
 class TooManyDeleteRowsException(SerializableException):
     def __init__(self, message: str):
         super().__init__(message)
+
+
+class NoRowsToDeleteException(SerializableException):
+    def __init__(self) -> None:
+        super().__init__("No rows to delete")
