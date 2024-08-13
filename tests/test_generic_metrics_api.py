@@ -319,9 +319,76 @@ class TestGenericMetricsApiDistributions(BaseApiTest):
         assert data["data"][0]["dist_sum"] == 200.0
         assert data["data"][0]["dist_count"] == 100.0
 
+    def test_retrieval_basic_sampled(self) -> None:
+        query_str = f"""MATCH (generic_metrics_distributions)
+                    SELECT min(value) AS dist_min,
+                           max(value) AS dist_max,
+                           avg_weighted(value) AS dist_avg,
+                           sum_weighted(value) AS dist_sum,
+                           count_weighted(value) AS dist_count
+                    BY project_id, org_id
+                    WHERE org_id = {self.org_id}
+                    AND project_id = {self.project_id}
+                    AND metric_id = {self.metric_id}
+                    AND timestamp >= toDateTime('{self.start_time}')
+                    AND timestamp < toDateTime('{self.end_time}')
+                    GRANULARITY 60
+                    """
+        response = self.app.post(
+            SNQL_ROUTE,
+            data=json.dumps(
+                {
+                    "query": query_str,
+                    "dataset": "generic_metrics",
+                    "tenant_ids": {"referrer": "tests", "organization_id": 1},
+                }
+            ),
+        )
+        data = json.loads(response.data)
+
+        assert response.status_code == 200
+        assert len(data["data"]) == 1, data
+        assert data["data"][0]["dist_min"] == 0.0
+        assert data["data"][0]["dist_max"] == 4.0
+        assert data["data"][0]["dist_avg"] == 2.0
+        assert data["data"][0]["dist_sum"] == 400.0
+        assert data["data"][0]["dist_count"] == 200.0
+
     def test_retrieval_percentiles(self) -> None:
         query_str = f"""MATCH (generic_metrics_distributions)
                     SELECT quantiles(0.5,0.9,0.95,0.99)(value) AS quants
+                    BY project_id, org_id
+                    WHERE org_id = {self.org_id}
+                    AND project_id = {self.project_id}
+                    AND metric_id = {self.metric_id}
+                    AND timestamp >= toDateTime('{self.start_time}')
+                    AND timestamp < toDateTime('{self.end_time}')
+                    GRANULARITY 60
+                    """
+        response = self.app.post(
+            SNQL_ROUTE,
+            data=json.dumps(
+                {
+                    "query": query_str,
+                    "dataset": "generic_metrics",
+                    "tenant_ids": {"referrer": "tests", "organization_id": 1},
+                }
+            ),
+        )
+        data = json.loads(response.data)
+
+        assert response.status_code == 200
+        assert len(data["data"]) == 1, data
+
+        aggregation = data["data"][0]
+
+        assert aggregation["org_id"] == self.org_id
+        assert aggregation["project_id"] == self.project_id
+        assert aggregation["quants"] == [2.0, approx(4.0), approx(4.0), approx(4.0)]
+
+    def test_retrieval_percentiles_sampled(self) -> None:
+        query_str = f"""MATCH (generic_metrics_distributions)
+                    SELECT quantiles_weighted(0.5,0.9,0.95,0.99)(value) AS quants
                     BY project_id, org_id
                     WHERE org_id = {self.org_id}
                     AND project_id = {self.project_id}
@@ -503,6 +570,32 @@ class TestGenericMetricsApiCounters(BaseApiTest):
         assert response.status_code == 200, response.data
         assert len(data["data"]) == 1, data
         assert data["data"][0]["total"] == 10.0
+
+    def test_retrieval_basic_weighted(self) -> None:
+        query_str = f"""MATCH (generic_metrics_counters)
+                    SELECT sum_weighted(value) AS total BY project_id, org_id
+                    WHERE org_id = {self.org_id}
+                    AND project_id = {self.project_id}
+                    AND metric_id = {self.metric_id}
+                    AND timestamp >= toDateTime('{self.start_time}')
+                    AND timestamp < toDateTime('{self.end_time}')
+                    GRANULARITY 60
+                    """
+        response = self.app.post(
+            SNQL_ROUTE,
+            data=json.dumps(
+                {
+                    "query": query_str,
+                    "dataset": "generic_metrics",
+                    "tenant_ids": {"referrer": "tests", "organization_id": 1},
+                }
+            ),
+        )
+        data = json.loads(response.data)
+
+        assert response.status_code == 200, response.data
+        assert len(data["data"]) == 1, data
+        assert data["data"][0]["total"] == 20.0
 
     def test_arbitrary_granularity(self) -> None:
         query_str = f"""MATCH (generic_metrics_counters)
