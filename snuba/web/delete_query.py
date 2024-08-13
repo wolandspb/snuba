@@ -129,6 +129,9 @@ def _enforce_max_rows(delete_query: Query) -> None:
         )
 
 
+from snuba.utils.schemas import ColumnValidator
+
+
 def _delete_from_table(
     storage: WritableTableStorage,
     table: str,
@@ -148,8 +151,13 @@ def _delete_from_table(
         on_cluster=on_cluster,
         is_delete=True,
     )
-    _enforce_max_rows(query)
 
+    columns = storage.get_schema().get_columns()
+    column_validator = ColumnValidator(columns)
+    for col, values in conditions.items():
+        column_validator.validate(col, values)
+
+    _enforce_max_rows(query)
     deletion_processors = storage.get_deletion_processors()
     # These settings aren't needed at the moment
     dummy_query_settings = HTTPQuerySettings()
